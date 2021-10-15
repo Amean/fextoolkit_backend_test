@@ -9,7 +9,7 @@ def dictionary_factory(db, row):
         "last_name": row[1],
         "state": row[2],
         "phonenumber": row[3],
-        "email": row[4]
+        "email": row[4]        
     }
 
 def search_phone_book(**kwargs):
@@ -22,7 +22,8 @@ def search_phone_book(**kwargs):
     if not any([search_first_name, search_last_name, search_state]):
         return []
 
-    query = "SELECT * FROM people WHERE "
+    query_for_min_num = "SELECT min(phonenumber) FROM people WHERE "
+    query_for_search_results = "SELECT * FROM people WHERE "
 
     query_arguments = []
 
@@ -35,11 +36,27 @@ def search_phone_book(**kwargs):
     if search_state:
         query_arguments.append(f"state='{search_state}'")
 
-    query += " AND ".join(query_arguments) 
+    query_arguments_string = " AND ".join(query_arguments)
 
-    db.row_factory = dictionary_factory
+    query_for_min_num += query_arguments_string
 
-    return list(db.execute(query))
+    print(query_for_min_num)
+
+    db.row_factory = sqlite3.Row
+    cur= db.cursor()
+
+    min_phonenum = cur.execute(query_for_min_num)
+    
+    print(type(min_phonenum))
+    print(min_phonenum.arraysize)
+    print(type(cur.fetchone()[0]))
+
+    query_for_search_results = query_for_search_results + query_arguments_string #+ " AND phonenumber >= :min_phonenum ORDER BY phonenumber LIMIT 5;"
+
+    search_results = db.execute(query_for_search_results, {"min_phonenum": min_phonenum})
+    search_results_list_of_dictionaries = [{k: item[k] for k in item.keys()} for item in search_results]
+
+    return search_results_of_dictionaries
 
 @app.route("/search/", methods=['GET'])
 def search_phonebook():
